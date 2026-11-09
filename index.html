@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AKUNTERAKTIF - Media Pembelajaran Akuntansi</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Custom Scrollbar for better UI */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    
+    /* Animations */
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+    @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .animate-pulse-fast { animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased overflow-hidden">
+  
+  <!-- App Container -->
+  <div id="root" class="h-screen w-screen flex flex-col md:flex-row"></div>
+  
+  <!-- Toasts Container -->
+  <div id="toasts" class="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- AI Chatbox Global Container -->
+  <div id="chatbox-root"></div>
+
+  <script>
+    // --- 1. DATA & CONSTANTS ---
+    const CHART_OF_ACCOUNTS = [
+      { code: '111', name: 'Kas', normal: 'debit', category: 'Aset' },
+      { code: '112', name: 'Piutang Usaha', normal: 'debit', category: 'Aset' },
+      { code: '113', name: 'Perlengkapan', normal: 'debit', category: 'Aset' },
+      { code: '114', name: 'Sewa Dibayar di Muka', normal: 'debit', category: 'Aset' },
+      { code: '121', name: 'Peralatan', normal: 'debit', category: 'Aset Tetap' },
+      { code: '122', name: 'Akumulasi Penyusutan Peralatan', normal: 'kredit', category: 'Aset Tetap' },
+      { code: '211', name: 'Utang Usaha', normal: 'kredit', category: 'Liabilitas' },
+      { code: '212', name: 'Utang Gaji', normal: 'kredit', category: 'Liabilitas' },
+      { code: '221', name: 'Utang Bank', normal: 'kredit', category: 'Liabilitas' },
+      { code: '311', name: 'Modal', normal: 'kredit', category: 'Ekuitas' },
+      { code: '312', name: 'Prive', normal: 'debit', category: 'Ekuitas' },
+      { code: '411', name: 'Pendapatan Jasa', normal: 'kredit', category: 'Pendapatan' },
+      { code: '511', name: 'Beban Gaji', normal: 'debit', category: 'Beban' },
+      { code: '512', name: 'Beban Sewa', normal: 'debit', category: 'Beban' },
+      { code: '513', name: 'Beban Perlengkapan', normal: 'debit', category: 'Beban' },
+      { code: '514', name: 'Beban Penyusutan', normal: 'debit', category: 'Beban' },
+      { code: '515', name: 'Beban Lain-lain', normal: 'debit', category: 'Beban' }
+    ];
+
+    const MATERI_LIST = [
+      { id: 1, title: 'Pengantar Akuntansi', content: 'Akuntansi adalah proses mengidentifikasi, mengukur, dan melaporkan informasi ekonomi untuk memungkinkan adanya penilaian dan keputusan yang jelas dan tegas bagi mereka yang menggunakan informasi tersebut. Fungsi utamanya adalah menyajikan informasi keuangan kepada pihak internal (manajemen) dan eksternal (investor, pemerintah).' },
+      { id: 2, title: 'Konsep Dasar & Persamaan Akuntansi', content: 'Persamaan Dasar Akuntansi adalah Harta (Aset) = Utang (Liabilitas) + Modal (Ekuitas). Setiap transaksi akan selalu menjaga keseimbangan persamaan ini. Saldo normal akun menentukan di sisi mana (debit/kredit) akun tersebut bertambah.' },
+      { id: 3, title: 'Analisis & Bukti Transaksi', content: 'Setiap transaksi keuangan harus didukung oleh bukti transaksi (kuitansi, faktur, nota). Analisis transaksi bertujuan menentukan akun apa yang terpengaruh, apakah bertambah atau berkurang, dan di sisi mana (debit/kredit) harus dicatat.' },
+      { id: 4, title: 'Jurnal Umum', content: 'Jurnal umum adalah buku catatan pertama untuk mencatat transaksi keuangan secara kronologis. Formatnya terdiri dari Tanggal, Keterangan (Nama Akun), Referensi, Debit, dan Kredit. Total Debit harus selalu sama dengan total Kredit.' },
+      { id: 5, title: 'Buku Besar & Neraca Saldo', content: 'Buku Besar adalah kumpulan akun yang saling berhubungan. Proses memindahkan catatan dari jurnal ke buku besar disebut posting. Neraca Saldo dibuat di akhir periode untuk menguji keseimbangan debit dan kredit dari seluruh saldo buku besar.' },
+      { id: 6, title: 'Jurnal Penyesuaian', content: 'Dibuat pada akhir periode akuntansi untuk menyesuaikan saldo-saldo akun agar menunjukkan keadaan yang sebenarnya (basis akrual). Contohnya: penyesuaian perlengkapan terpakai, beban dibayar di muka, dan penyusutan aset.' },
+      { id: 7, title: 'Neraca Lajur', content: 'Kertas kerja (worksheet) berkolom-kolom yang digunakan untuk memudahkan penyusunan laporan keuangan. Terdiri dari kolom neraca saldo, penyesuaian, neraca saldo disesuaikan, laba/rugi, dan neraca.' },
+      { id: 8, title: 'Laporan Keuangan', content: 'Terdiri dari: 1. Laporan Laba Rugi (Pendapatan - Beban). 2. Laporan Perubahan Modal (Modal Awal + Laba - Prive). 3. Laporan Posisi Keuangan / Neraca (Daftar Aset, Liabilitas, Ekuitas pada tanggal tertentu).' },
+      { id: 9, title: 'Jurnal Penutup', content: 'Digunakan untuk menolkan saldo akun-akun nominal (pendapatan dan beban) serta prive pada akhir periode, dengan memindahkannya ke akun Ikhtisar Laba/Rugi, lalu ke akun Modal.' },
+      { id: 10, title: 'Jurnal Pembalik', content: 'Jurnal opsional yang dibuat pada awal periode akuntansi berikutnya untuk membalik jurnal penyesuaian tertentu (misal: beban yang masih harus dibayar) agar pencatatan transaksi rutin lebih konsisten.' },
+      { id: 11, title: 'Siklus Akuntansi Jasa', content: 'Siklus lengkap perusahaan jasa meliputi: Bukti Transaksi -> Jurnal Umum -> Buku Besar -> Neraca Saldo -> Jurnal Penyesuaian -> Kertas Kerja -> Laporan Keuangan -> Jurnal Penutup -> Neraca Saldo Setelah Penutupan.' },
+      { id: 12, title: 'Etika Profesi Akuntansi', content: 'Akuntan harus mematuhi kode etik: integritas, objektivitas, kompetensi profesional dan kehati-hatian, kerahasiaan, serta perilaku profesional. Hal ini penting untuk menjaga kepercayaan publik terhadap informasi keuangan.' }
+    ];
+
+    const GLOSARIUM = [
+      { term: 'Aset', desc: 'Sumber daya ekonomi yang dikuasai perusahaan.' },
+      { term: 'Liabilitas', desc: 'Kewajiban perusahaan kepada pihak luar (Utang).' },
+      { term: 'Ekuitas', desc: 'Hak pemilik atas aset perusahaan setelah dikurangi liabilitas.' },
+      { term: 'Debit', desc: 'Sisi kiri dari sebuah akun.' },
+      { term: 'Kredit', desc: 'Sisi kanan dari sebuah akun.' },
+      { term: 'Posting', desc: 'Proses memindahkan catatan dari jurnal ke buku besar.' },
+      { term: 'Prive', desc: 'Pengambilan aset perusahaan oleh pemilik untuk keperluan pribadi.' },
+      { term: 'Akrual', desc: 'Pencatatan transaksi saat terjadi, bukan saat kas diterima/dibayar.' }
+    ];
+
+    const BADGES = [
+      { id: 'b1', name: 'Pemula', desc: 'Memulai perjalanan belajar', threshold: 10 },
+      { id: 'b2', name: 'Rajin', desc: 'Mendapat 100 poin', threshold: 100 },
+      { id: 'b3', name: 'Sarjana', desc: 'Mendapat 500 poin', threshold: 500 },
+      { id: 'b4', name: 'Ahli Jurnal', desc: 'Mencoba simulasi Lab', threshold: 50 }
+    ];
+
+    const EVALUASI_QS = [
+      { q: "Apakah tujuan utama dari akuntansi?", options: ["Mencari kesalahan karyawan", "Menyajikan informasi keuangan kepada pihak yang berkepentingan", "Menghitung jumlah barang di gudang", "Mencatat daftar hadir pegawai"], ans: 1 },
+      { q: "Rumus Persamaan Dasar Akuntansi yang benar adalah...", options: ["Aset = Liabilitas - Ekuitas", "Ekuitas = Aset + Liabilitas", "Aset = Liabilitas + Ekuitas", "Liabilitas = Aset + Ekuitas"], ans: 2 },
+      { q: "Proses memindahkan catatan transaksi dari Jurnal Umum ke Buku Besar disebut dengan...", options: ["Penjurnalan", "Pengikhtisaran", "Posting", "Pelaporan"], ans: 2 },
+      { q: "Manakah dari akun di bawah ini yang saldo normalnya selalu berada di sisi Debit?", options: ["Utang Usaha", "Pendapatan Jasa", "Modal", "Beban Sewa"], ans: 3 },
+      { q: "Jurnal yang dibuat pada akhir periode untuk menyesuaikan saldo akun agar menunjukkan keadaan sebenarnya disebut...", options: ["Jurnal Umum", "Jurnal Penutup", "Jurnal Penyesuaian", "Jurnal Pembalik"], ans: 2 },
+      { q: "Laporan yang secara khusus menyajikan jumlah Harta, Utang, dan Modal perusahaan pada tanggal tertentu adalah...", options: ["Laporan Laba Rugi", "Laporan Perubahan Modal", "Laporan Arus Kas", "Laporan Posisi Keuangan (Neraca)"], ans: 3 },
+      { q: "Kelompok akun apa saja yang sifatnya nominal dan perlu ditutup menggunakan Jurnal Penutup di akhir periode?", options: ["Aset dan Liabilitas", "Pendapatan, Beban, dan Prive", "Modal dan Aset", "Liabilitas dan Modal"], ans: 1 },
+      { q: "Apabila terjadi transaksi penerimaan uang tunai dari pelanggan, bukti transaksi yang paling tepat diberikan adalah...", options: ["Faktur", "Nota Debit", "Kuitansi", "Nota Kredit"], ans: 2 },
+      { q: "Jika perusahaan membeli peralatan baru secara kredit, maka pencatatan jurnal umumnya adalah...", options: ["Peralatan (Debit), Kas (Kredit)", "Kas (Debit), Utang (Kredit)", "Peralatan (Debit), Utang Usaha (Kredit)", "Utang Usaha (Debit), Peralatan (Kredit)"], ans: 2 },
+      { q: "Urutan siklus akuntansi perusahaan jasa yang paling tepat di bawah ini adalah...", options: ["Jurnal -> Bukti Transaksi -> Buku Besar -> Laporan Keuangan", "Bukti Transaksi -> Jurnal -> Buku Besar -> Neraca Saldo -> Laporan Keuangan", "Buku Besar -> Jurnal -> Neraca Saldo -> Laporan Keuangan", "Laporan Keuangan -> Neraca Saldo -> Jurnal -> Buku Besar"], ans: 1 }
+    ];
+
+    const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
+
+    // --- 2. STATE MANAGEMENT ---
+    let state = {
+      user: JSON.parse(localStorage.getItem('akunteraktif_user')) || null,
+      points: Number(localStorage.getItem('akunteraktif_points')) || 0,
+      progress: JSON.parse(localStorage.getItem('akunteraktif_progress')) || { materi: [], labStep: 1 },
+      labData: JSON.parse(localStorage.getItem('akunteraktif_lab_journal')) || [],
+      forum: JSON.parse(localStorage.getItem('akunteraktif_forum')) || [],
+      calendar: JSON.parse(localStorage.getItem('akunteraktif_calendar')) || [],
+      
+      currentView: 'dashboard',
+      mobileMenuOpen: false,
+      
+      // Local view states
+      activeMateriId: 1,
+      labTab: 'info',
+      calcTab: 'pda',
+      glosariumSearch: '',
+      
+      // Games & Evaluasi states
+      eval: { step: 0, score: 0, finished: false, selected: null, feedback: null },
+      games: {
+        tebakAkun: { step: 0, score: 0, feedback: null },
+        pasangDK: { step: 0, score: 0, db: '', kr: '', feedback: null },
+        susunJurnal: { step: 0, score: 0, selected: [], feedback: null },
+        klasifikasi: { score: 0, current: null },
+        saldoNormal: { qIndex: 0, score: 0, questions: [], feedback: null },
+        tantangan: { playing: false, timeLeft: 30, score: 0, currentQ: null, intervalId: null }
+      }
+    };
+
+    function saveState(key, value) {
+      localStorage.setItem(`akunteraktif_${key}`, JSON.stringify(value));
+    }
+
+    // --- 3. UI HELPER COMPONENTS (String Builders) ---
+    const UI = {
+      Button: (text, onclick, variant = 'primary', extraClass = '', disabled = false) => {
+        const base = "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+        const variants = {
+          primary: "bg-indigo-600 text-white hover:bg-indigo-700",
+          secondary: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+          danger: "bg-red-600 text-white hover:bg-red-700",
+          outline: "border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50",
+          ghost: "text-slate-600 hover:bg-slate-100"
+        };
+        return `<button onclick="${onclick}" class="${base} ${variants[variant]} ${extraClass}" ${disabled ? 'disabled' : ''}>${text}</button>`;
+      },
+      Card: (title, icon, content, extraClass = '') => `
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ${extraClass}">
+          ${title ? `<div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50"><div class="flex items-center gap-2 text-slate-800 font-semibold"><i class="${icon} text-indigo-600"></i> ${title}</div></div>` : ''}
+          <div class="p-5">${content}</div>
+        </div>
+      `,
+      NavItem: (id, label, icon) => {
+        const isActive = state.currentView === id;
+        return `<button onclick="app.navigate('${id}')" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}">
+          <i class="${icon} ${isActive ? 'text-indigo-600' : 'text-slate-400'} w-5 text-center"></i> ${label}
+        </button>`;
+      }
+    };
+
+    // --- 4. MAIN APP CONTROLLER ---
+    window.app = {
+      init() {
+        this.render();
+      },
+      
+      toast(message, type = 'success') {
+        const container = document.getElementById('toasts');
+        const el = document.createElement('div');
+        el.className = `px-4 py-3 rounded shadow-lg text-white font-medium flex items-center gap-2 transform transition-all duration-300 animate-slide-up pointer-events-auto ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+        el.innerHTML = `<i class="${type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'}"></i> ${message}`;
+        container.appendChild(el);
+        setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.remove(), 300); }, 3000);
+      },
+
+      addPoints(amount, reason) {
+        state.points += amount;
+        saveState('points', state.points);
+        this.toast(`+${amount} Poin: ${reason}`, 'success');
+        this.renderContent(); // Soft render
+      },
+
+      login(role) {
+        const name = document.getElementById('login-name').value;
+        if (!name.trim()) return this.toast("Silakan masukkan nama Anda.", "error");
+        state.user = { name, role, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}` };
+        saveState('user', state.user);
+        this.toast(`Selamat datang, ${name}!`, 'success');
+        this.render();
+      },
+
+      logout() {
+        state.user = null;
+        localStorage.removeItem('akunteraktif_user');
+        this.toast("Berhasil keluar sesi.", "success");
+        this.render();
+      },
+
+      resetAll() {
+        if (confirm("Apakah Anda yakin ingin menghapus SEMUA data dan kembali ke awal?")) {
+          localStorage.clear();
+          window.location.reload();
+        }
+      },
+
+      navigate(view) {
+        // Cleanup global intervals
+        if(state.games.tantangan.intervalId) {
+          clearInterval(state.games.tantangan.intervalId);
+          state.games.tantangan.intervalId = null;
+        }
+        
+        state.currentView = view;
+        state.mobileMenuOpen = false;
+        
+        // Reset local view states
+        this.resetGameStates();
+        
+        this.render(); // Hard render for layout updates
+      },
+
+      toggleMobileMenu() {
+        state.mobileMenuOpen = !state.mobileMenuOpen;
+        this.render();
+      },
+
+      resetGameStates() {
+        state.eval = { step: 0, score: 0, finished: false, selected: null, feedback: null };
+        state.games.tebakAkun = { step: 0, score: 0, feedback: null };
+        state.games.pasangDK = { step: 0, score: 0, db: '', kr: '', feedback: null };
+        state.games.susunJurnal = { step: 0, score: 0, selected: [], feedback: null };
+        state.games.klasifikasi = { score: 0, current: CHART_OF_ACCOUNTS[Math.floor(Math.random() * CHART_OF_ACCOUNTS.length)] };
+        state.games.saldoNormal = { qIndex: 0, score: 0, questions: [...CHART_OF_ACCOUNTS].sort(() => 0.5 - Math.random()).slice(0, 10), feedback: null };
+        state.games.tantangan = { playing: false, timeLeft: 30, score: 0, currentQ: null, intervalId: null };
+      },
+
+      // --- RENDERING PIPELINE ---
+      render() {
+        const root = document.getElementById('root');
+        if (!state.user) {
+          root.innerHTML = this.views.landing();
+          document.getElementById('chatbox-root').innerHTML = ''; // Hide AI when logged out
+          return;
+        }
+        root.innerHTML = this.views.layout();
+        this.renderContent();
+        this.renderChatbox();
+      },
+
+      renderContent() {
+        const contentDiv = document.getElementById('main-content');
+        if(!contentDiv) return;
+        
+        const renderMap = {
+          'dashboard': this.views.dashboard,
+          'materi': this.views.materi,
+          'lab': this.views.lab,
+          'calc': this.views.calc,
+          'evaluasi': this.views.evaluasi,
+          'glosarium': this.views.glosarium,
+          'forum': this.views.forum,
+          'calendar': this.views.calendar,
+          'settings': this.views.settings,
+          'creator': this.views.creator,
+          'game_tebak_akun': this.views.gameTebakAkun,
+          'game_pasang_dk': this.views.gamePasangDK,
+          'game_susun_jurnal': this.views.gameSusunJurnal,
+          'game_klasifikasi': this.views.gameKlasifikasi,
+          'game_saldo': this.views.gameSaldoNormal,
+          'game_tantangan': this.views.gameTantangan
+        };
+
+        const viewFn = renderMap[state.currentView];
+        contentDiv.innerHTML = viewFn ? viewFn.call(this) : '<div>View tidak ditemukan.</div>';
+      },
+
+      // --- VIEWS ---
+      views: {
+        landing: () => `
+          <div class="min-h-screen bg-slate-50 flex items-center justify-center p-4 w-full">
+            <div class="max-w-md w-full">
+              <div class="text-center mb-8">
+                <div class="bg-indigo-600 text-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg rotate-3">
+                  <i class="fas fa-book-open text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">AKUNTERAKTIF</h1>
+                <p class="text-slate-600 mt-2">Belajar Akuntansi Lebih Mudah, Interaktif, dan Menyenangkan.</p>
+              </div>
+              ${UI.Card('', '', `
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Panggilan</label>
+                    <input type="text" id="login-name" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Masukkan nama Anda..." onkeydown="if(event.key==='Enter') app.login('murid')"/>
+                  </div>
+                  <div class="pt-2">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Masuk Sebagai:</label>
+                    <div class="grid grid-cols-2 gap-3">
+                      <button onclick="app.login('murid')" class="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 h-auto py-4 rounded-lg font-medium flex flex-col items-center gap-2 transition"><i class="fas fa-user text-2xl"></i> Murid</button>
+                      <button onclick="app.login('guru')" class="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 h-auto py-4 rounded-lg font-medium flex flex-col items-center gap-2 transition"><i class="fas fa-chalkboard-teacher text-2xl"></i> Guru</button>
+                    </div>
+                  </div>
+                </div>
+              `, 'shadow-xl')}
+            </div>
+          </div>
+        `,
+        
+        layout: () => `
+          <!-- Mobile Header -->
+          <div class="md:hidden bg-white p-4 flex justify-between items-center border-b border-slate-200 z-20 w-full shrink-0">
+            <div class="font-bold text-indigo-700 text-lg flex items-center gap-2"><i class="fas fa-book-open"></i> AKUNTERAKTIF</div>
+            <button onclick="app.toggleMobileMenu()" class="p-2 bg-slate-50 rounded text-slate-600"><i class="fas ${state.mobileMenuOpen ? 'fa-times' : 'fa-bars'} text-xl"></i></button>
+          </div>
+
+          <!-- Sidebar -->
+          <div class="fixed md:static inset-0 bg-white md:w-64 border-r border-slate-200 flex flex-col transform transition-transform duration-300 z-10 shrink-0 ${state.mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}">
+            <div class="p-6 hidden md:block border-b border-slate-100">
+              <div class="font-bold text-indigo-700 text-xl flex items-center gap-2"><i class="fas fa-book-open"></i> AKUNTERAKTIF</div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-1 mt-16 md:mt-0">
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-2 mt-4">Utama</div>
+              ${UI.NavItem('dashboard', 'Dashboard', 'fa-home')}
+              ${UI.NavItem('materi', 'Materi Belajar', 'fa-bookmark')}
+              ${UI.NavItem('lab', 'Lab Akuntansi', 'fa-chart-line')}
+              ${UI.NavItem('calc', 'Kalkulator', 'fa-calculator')}
+              
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-2 mt-6">Latihan & Interaksi</div>
+              ${UI.NavItem('evaluasi', 'Evaluasi Akhir', 'fa-check-circle')}
+              ${UI.NavItem('glosarium', 'Glosarium', 'fa-file-alt')}
+              ${UI.NavItem('forum', 'Forum Diskusi', 'fa-comments')}
+              ${UI.NavItem('calendar', 'Kalender', 'fa-calendar-alt')}
+              
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-2 mt-6">Permainan Edukatif</div>
+              ${UI.NavItem('game_tebak_akun', 'Tebak Nama Akun', 'fa-question-circle')}
+              ${UI.NavItem('game_pasang_dk', 'Pasang Debit/Kredit', 'fa-gamepad')}
+              ${UI.NavItem('game_susun_jurnal', 'Susun Jurnal', 'fa-file-alt')}
+              ${UI.NavItem('game_klasifikasi', 'Klasifikasi Akun', 'fa-brain')}
+              ${UI.NavItem('game_saldo', 'Tebak Saldo Normal', 'fa-chart-pie')}
+              ${UI.NavItem('game_tantangan', 'Tantangan 30 Detik', 'fa-stopwatch')}
+
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-2 mt-6">Akun & Bantuan</div>
+              ${UI.NavItem('settings', 'Pengaturan', 'fa-cog')}
+              ${UI.NavItem('creator', 'Profil Pembuat', 'fa-user')}
+              
+              <a href="https://forms.gle/aPRkWVHy3gsv4wXG6" target="_blank" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50 mt-1">
+                <i class="fas fa-comment-dots w-5 text-center text-slate-400"></i> Ulasan & Umpan Balik
+              </a>
+            </div>
+
+            <div class="p-4 border-t border-slate-100 bg-slate-50">
+              <button onclick="app.logout()" class="w-full flex justify-center items-center gap-2 py-3 bg-red-50 rounded-lg text-sm text-red-600 hover:bg-red-100 font-bold transition-colors">
+                <i class="fas fa-sign-out-alt"></i> Keluar
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Content Wrapper -->
+          <div id="main-content" class="flex-1 h-full overflow-y-auto p-4 md:p-8 relative bg-slate-100/50"></div>
+        `,
+
+        dashboard: () => {
+          const level = Math.floor(state.points / 100) + 1;
+          const prog = Math.round((state.progress.materi.length / MATERI_LIST.length) * 100);
+          const earnedBadges = BADGES.filter(b => state.points >= b.threshold);
+          
+          return `
+            <div class="space-y-6 max-w-5xl mx-auto animate-slide-up">
+              <div class="bg-indigo-600 rounded-2xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row items-center gap-6">
+                <img src="${state.user.avatar}" alt="Avatar" class="w-24 h-24 bg-white rounded-full border-4 border-indigo-300" />
+                <div class="text-center md:text-left flex-1">
+                  <h1 class="text-2xl md:text-3xl font-bold">Halo, ${state.user.role === 'guru' ? 'Guru ' : ''}${state.user.name}! 👋</h1>
+                  <p class="text-indigo-100 mt-1">Selamat datang di Akunteraktif. Mari lanjutkan belajarmu hari ini.</p>
+                </div>
+                <div class="bg-indigo-700/50 rounded-xl p-4 flex gap-6 text-center">
+                  <div><div class="text-xs text-indigo-200 uppercase tracking-wide">Level</div><div class="text-2xl font-bold">${level}</div></div>
+                  <div><div class="text-xs text-indigo-200 uppercase tracking-wide">Poin</div><div class="text-2xl font-bold">${state.points}</div></div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                ${UI.Card('Progres Materi', 'fa-bookmark', `
+                  <div class="flex justify-between text-sm mb-1 text-slate-600">
+                    <span>Diselesaikan: ${state.progress.materi.length} / ${MATERI_LIST.length}</span><span class="font-bold">${prog}%</span>
+                  </div>
+                  <div class="w-full bg-slate-100 rounded-full h-2.5">
+                    <div class="bg-green-500 h-2.5 rounded-full transition-all" style="width: ${prog}%"></div>
+                  </div>
+                  ${state.user.role === 'guru' ? '<p class="text-xs text-slate-500 mt-4 italic">Sebagai Guru, Anda dapat memantau simulasi progres siswa.</p>' : ''}
+                `)}
+                
+                ${UI.Card('Pencapaian Lencana', 'fa-medal', `
+                  <div class="flex flex-wrap gap-4">
+                    ${BADGES.map(b => {
+                      const unlocked = earnedBadges.some(eb => eb.id === b.id);
+                      return `<div class="flex flex-col items-center p-3 rounded-lg border text-center w-24 ${unlocked ? 'border-indigo-200 bg-indigo-50' : 'border-slate-100 bg-slate-50 opacity-50 grayscale'}">
+                        <i class="fas fa-medal ${unlocked ? 'text-indigo-600' : 'text-slate-400'} mb-1 text-2xl"></i>
+                        <span class="text-xs font-bold text-slate-800 leading-tight mt-1">${b.name}</span>
+                      </div>`;
+                    }).join('')}
+                  </div>
+                `, 'md:col-span-2')}
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 ${UI.Card('Aktivitas Lab', 'fa-chart-line', `
+                    <p class="text-slate-600 mb-4">Simulasi PT AKUNTERAKTIF</p>
+                    <div class="flex justify-between items-center p-2 bg-slate-50 rounded mb-2">
+                      <span class="text-sm">Entri Jurnal Umum</span><span class="font-bold text-indigo-600">${state.labData.length} transaksi</span>
+                    </div>
+                    ${state.labData.length > 0 ? `<p class="text-green-600 flex items-center gap-1 text-xs"><i class="fas fa-check-circle"></i> Laboratorium aktif.</p>` : `<p class="text-slate-500 text-xs italic">Belum ada transaksi.</p>`}
+                 `)}
+                 ${UI.Card('Target Harian', 'fa-check-circle', `
+                    <ul class="space-y-3">
+                      <li class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" disabled ${state.progress.materi.length > 0 ? 'checked' : ''} class="w-4 h-4 rounded text-indigo-600" /> Baca minimal 1 materi</li>
+                      <li class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" disabled ${state.points >= 10 ? 'checked' : ''} class="w-4 h-4 rounded text-indigo-600" /> Dapatkan 10 poin</li>
+                      <li class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" disabled ${state.labData.length > 0 ? 'checked' : ''} class="w-4 h-4 rounded text-indigo-600" /> Catat 1 transaksi Lab</li>
+                    </ul>
+                 `)}
+              </div>
+            </div>
+          `;
+        },
+
+        materi: () => {
+          const act = MATERI_LIST.find(m => m.id === state.activeMateriId);
+          const isDone = state.progress.materi.includes(act.id);
+          
+          return `
+            <div class="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto md:h-[calc(100vh-8rem)] animate-slide-up">
+              ${UI.Card('Daftar Materi', '', `
+                <div class="overflow-y-auto h-64 md:h-full pr-2">
+                  ${MATERI_LIST.map(m => `
+                    <button onclick="state.activeMateriId=${m.id}; app.renderContent()" class="w-full text-left p-3 rounded-lg mb-1 flex items-center justify-between transition-colors ${state.activeMateriId === m.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium' : 'hover:bg-slate-50 text-slate-700'}">
+                      <span class="truncate pr-2 text-sm">Bab ${m.id}: ${m.title}</span>
+                      ${state.progress.materi.includes(m.id) ? '<i class="fas fa-check-circle text-green-500 shrink-0"></i>' : ''}
+                    </button>
+                  `).join('')}
+                </div>
+              `, 'w-full md:w-1/3 p-0 flex flex-col')}
+
+              ${UI.Card('', '', `
+                <div class="flex-1 overflow-y-auto pb-6">
+                  <h2 class="text-2xl font-bold text-slate-800 mb-2">Bab ${act.id}: ${act.title}</h2>
+                  ${state.user.role === 'guru' ? '<span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded mb-4">Tampilan Materi Guru</span>' : ''}
+                  <div class="prose prose-indigo max-w-none text-slate-700 leading-relaxed text-sm md:text-base">
+                    <p>${act.content}</p>
+                    <div class="my-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <h4 class="font-semibold text-slate-800 mb-2">Poin Penting:</h4>
+                      <ul class="list-disc list-inside space-y-1">
+                        <li>Pahami definisi dan konsep dasar.</li>
+                        <li>Hafalkan posisi saldo normal untuk mempermudah penjurnalan.</li>
+                        <li>Latihan analisis transaksi secara konsisten.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 mt-auto">
+                  ${UI.Button(isDone ? '<i class="fas fa-check-circle"></i> Selesai Dipelajari' : 'Tandai Selesai (+10 Poin)', "app.markMateriDone()", isDone ? 'secondary' : 'primary', 'w-full md:w-auto', isDone)}
+                </div>
+              `, 'w-full md:w-2/3 h-full flex flex-col p-6')}
+            </div>
+          `;
+        },
+
+        lab: () => {
+          // Compute Derived Data
+          const ledger = {};
+          state.labData.forEach(entry => {
+            const acc = CHART_OF_ACCOUNTS.find(a => a.code === entry.account);
+            if (!acc) return;
+            if (!ledger[entry.account]) ledger[entry.account] = { ...acc, lines: [], balance: 0 };
+            const l = ledger[entry.account];
+            let diff = l.normal === 'debit' ? (entry.debit - entry.credit) : (entry.credit - entry.debit);
+            l.balance += diff;
+            l.lines.push({ ...entry, bal: l.balance });
+          });
+
+          const neracaSaldo = Object.values(ledger).map(acc => ({
+            code: acc.code, name: acc.name,
+            debit: acc.normal === 'debit' && acc.balance > 0 ? acc.balance : 0,
+            kredit: acc.normal === 'kredit' && acc.balance > 0 ? acc.balance : (acc.balance < 0 ? Math.abs(acc.balance) : 0)
+          })).sort((a,b) => a.code.localeCompare(b.code));
+
+          const pendapatan = neracaSaldo.filter(a => a.code.startsWith('4')).reduce((s, a) => s + a.kredit, 0);
+          const beban = neracaSaldo.filter(a => a.code.startsWith('5')).reduce((s, a) => s + a.debit, 0);
+          const labaBersih = pendapatan - beban;
+          
+          const TabBtn = (id, label) => `<button onclick="state.labTab='${id}'; app.renderContent()" class="px-4 py-3 font-medium whitespace-nowrap border-b-2 transition-colors ${state.labTab === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}">${label}</button>`;
+
+          let content = '';
+          if (state.labTab === 'info') {
+            content = `<div class="prose max-w-none text-slate-700 text-sm md:text-base">
+              <h2 class="text-xl font-bold mb-2">PT AKUNTERAKTIF</h2>
+              <p>Perusahaan Jasa Konsultasi IT. Periode Akuntansi: Bulan Berjalan.</p>
+              <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mt-4 text-sm">
+                <strong>Cara Kerja Laboratorium:</strong>
+                <ol class="list-decimal pl-5 mt-2 space-y-1">
+                  <li>Masukkan transaksi pada tab <strong>Jurnal Umum</strong>.</li>
+                  <li>Data akan otomatis ter-posting ke <strong>Buku Besar</strong>.</li>
+                  <li>Saldo akhir akan masuk ke <strong>Neraca Saldo</strong>.</li>
+                  <li><strong>Laporan Keuangan</strong> akan tersusun otomatis.</li>
+                </ol>
+              </div>
+            </div>`;
+          } else if (state.labTab === 'jurnal') {
+            const totDb = state.labData.reduce((s,i) => s + i.debit, 0);
+            const totKr = state.labData.reduce((s,i) => s + i.credit, 0);
+            content = `
+              <form onsubmit="event.preventDefault(); app.labAddJurnal()" class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6 flex flex-wrap gap-4 items-end">
+                <div class="w-full md:w-32"><label class="block text-xs font-medium text-slate-700 mb-1">Tanggal</label><input type="date" id="lj-date" required class="w-full p-2 border rounded text-sm outline-indigo-500"></div>
+                <div class="flex-1 min-w-[200px]"><label class="block text-xs font-medium text-slate-700 mb-1">Akun</label>
+                  <select id="lj-acc" required class="w-full p-2 border rounded text-sm outline-indigo-500"><option value="">-- Pilih --</option>${CHART_OF_ACCOUNTS.map(a => `<option value="${a.code}">${a.code} - ${a.name}</option>`).join('')}</select>
+                </div>
+                <div class="w-full md:w-32"><label class="block text-xs font-medium text-slate-700 mb-1">Debit (Rp)</label><input type="number" id="lj-db" class="w-full p-2 border rounded text-sm outline-indigo-500"></div>
+                <div class="w-full md:w-32"><label class="block text-xs font-medium text-slate-700 mb-1">Kredit (Rp)</label><input type="number" id="lj-kr" class="w-full p-2 border rounded text-sm outline-indigo-500"></div>
+                ${UI.Button('<i class="fas fa-plus"></i> Tambah', '', 'primary', 'h-[38px]')}
+              </form>
+              <div class="overflow-x-auto border rounded-lg">
+                <table class="w-full text-sm text-left"><thead class="text-xs text-slate-700 uppercase bg-slate-100"><tr><th class="px-4 py-3">Tanggal</th><th class="px-4 py-3">Akun</th><th class="px-4 py-3 text-right">Debit</th><th class="px-4 py-3 text-right">Kredit</th><th class="px-4 py-3 text-center">Aksi</th></tr></thead>
+                <tbody>
+                  ${state.labData.length ? '' : '<tr><td colSpan="5" class="text-center py-6 text-slate-500">Belum ada jurnal</td></tr>'}
+                  ${state.labData.map(r => `<tr class="border-b hover:bg-slate-50">
+                    <td class="px-4 py-2">${r.date}</td>
+                    <td class="px-4 py-2 ${r.credit>0 ? 'pl-8':''}">${CHART_OF_ACCOUNTS.find(a=>a.code===r.account)?.name||r.account}</td>
+                    <td class="px-4 py-2 text-right">${r.debit?formatRp(r.debit):''}</td>
+                    <td class="px-4 py-2 text-right">${r.credit?formatRp(r.credit):''}</td>
+                    <td class="px-4 py-2 text-center"><button onclick="app.labDelJurnal(${r.id})" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button></td>
+                  </tr>`).join('')}
+                </tbody>
+                <tfoot class="font-bold ${totDb===totKr ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}"><tr><td colSpan="2" class="px-4 py-3 text-right">TOTAL:</td><td class="px-4 py-3 text-right">${formatRp(totDb)}</td><td class="px-4 py-3 text-right">${formatRp(totKr)}</td><td class="px-4 py-3 text-xs text-center">${totDb===totKr?'SEIMBANG':'TIDAK SEIMBANG'}</td></tr></tfoot>
+                </table>
+              </div>`;
+          } else if (state.labTab === 'bukuBesar') {
+            const accounts = Object.values(ledger);
+            content = accounts.length ? `<div class="space-y-6">` + accounts.map(acc => `
+              <div class="border rounded-lg overflow-hidden"><div class="bg-slate-100 px-4 py-2 font-bold text-sm flex justify-between"><span>${acc.code} - ${acc.name}</span><span class="text-slate-500">Normal: ${acc.normal.toUpperCase()}</span></div>
+              <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="text-xs uppercase bg-slate-50 border-b"><tr><th class="px-4 py-2">Tgl</th><th class="px-4 py-2 text-right">Debit</th><th class="px-4 py-2 text-right">Kredit</th><th class="px-4 py-2 text-right bg-indigo-50">Saldo</th></tr></thead>
+              <tbody>${acc.lines.map(l => `<tr class="border-b"><td class="px-4 py-2">${l.date}</td><td class="px-4 py-2 text-right">${l.debit?formatRp(l.debit):'-'}</td><td class="px-4 py-2 text-right">${l.credit?formatRp(l.credit):'-'}</td><td class="px-4 py-2 text-right font-medium bg-indigo-50/50">${formatRp(l.bal)}</td></tr>`).join('')}</tbody></table></div></div>
+            `).join('') + `</div>` : `<p class="text-slate-500 text-center py-8">Belum ada data dari Jurnal.</p>`;
+          } else if (state.labTab === 'neracaSaldo') {
+            const tDb = neracaSaldo.reduce((s,a)=>s+a.debit,0); const tKr = neracaSaldo.reduce((s,a)=>s+a.kredit,0);
+            content = `<div class="overflow-x-auto border rounded-lg"><table class="w-full text-sm text-left"><thead class="text-xs uppercase bg-slate-100"><tr><th class="px-4 py-3">No</th><th class="px-4 py-3">Akun</th><th class="px-4 py-3 text-right">Debit</th><th class="px-4 py-3 text-right">Kredit</th></tr></thead>
+              <tbody>${neracaSaldo.length ? neracaSaldo.map(a => `<tr class="border-b"><td class="px-4 py-2 font-mono">${a.code}</td><td class="px-4 py-2">${a.name}</td><td class="px-4 py-2 text-right">${a.debit?formatRp(a.debit):'-'}</td><td class="px-4 py-2 text-right">${a.kredit?formatRp(a.kredit):'-'}</td></tr>`).join('') : '<tr><td colSpan="4" class="text-center py-4 text-slate-500">Kosong</td></tr>'}</tbody>
+              <tfoot class="bg-slate-50 font-bold"><tr><td colSpan="2" class="px-4 py-3 text-right">TOTAL:</td><td class="px-4 py-3 text-right">${formatRp(tDb)}</td><td class="px-4 py-3 text-right">${formatRp(tKr)}</td></tr></tfoot>
+            </table></div>`;
+          } else if (state.labTab === 'laporan') {
+            content = `
+              <div class="border border-slate-200 rounded-lg p-6 max-w-2xl mx-auto shadow-sm">
+                <div class="text-center mb-6"><h3 class="font-bold text-lg uppercase">PT AKUNTERAKTIF</h3><h4 class="font-bold uppercase text-sm">Laporan Laba Rugi</h4></div>
+                <div class="space-y-4">
+                  <div><div class="font-bold text-slate-700 mb-1">Pendapatan:</div>
+                    ${neracaSaldo.filter(a=>a.code.startsWith('4')).map(a=>`<div class="flex justify-between text-sm pl-4"><span>${a.name}</span><span>${formatRp(a.kredit)}</span></div>`).join('')}
+                    <div class="flex justify-between font-bold text-sm border-t border-slate-300 mt-1 pt-1 pl-4"><span>Total Pendapatan</span><span>${formatRp(pendapatan)}</span></div>
+                  </div>
+                  <div><div class="font-bold text-slate-700 mb-1">Beban:</div>
+                    ${neracaSaldo.filter(a=>a.code.startsWith('5')).map(a=>`<div class="flex justify-between text-sm pl-4"><span>${a.name}</span><span>${formatRp(a.debit)}</span></div>`).join('')}
+                    <div class="flex justify-between font-bold text-sm border-t border-slate-300 mt-1 pt-1 pl-4"><span>Total Beban</span><span>(${formatRp(beban)})</span></div>
+                  </div>
+                  <div class="flex justify-between font-bold text-lg border-y-2 border-slate-800 py-2 ${labaBersih>=0?'text-green-600':'text-red-600'}"><span>${labaBersih>=0?'Laba Bersih':'Rugi Bersih'}</span><span>${formatRp(labaBersih)}</span></div>
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="max-w-6xl mx-auto animate-slide-up">
+              <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="flex overflow-x-auto border-b border-slate-200 bg-slate-50 scrollbar-hide">
+                  ${TabBtn('info', 'Informasi')} ${TabBtn('jurnal', '1. Jurnal Umum')} ${TabBtn('bukuBesar', '2. Buku Besar')} ${TabBtn('neracaSaldo', '3. Neraca Saldo')} ${TabBtn('laporan', '4. Laporan')}
+                </div>
+                <div class="p-4 md:p-6">${content}</div>
+              </div>
+            </div>
+          `;
+        },
+
+        calc: () => {
+          const CalcBtn = (id, label) => `<button onclick="state.calcTab='${id}'; app.renderContent()" class="w-full text-left px-4 py-3 text-sm font-medium border-b ${state.calcTab === id ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'hover:bg-slate-50 text-slate-700 border-slate-100'}">${label}</button>`;
+          const Inp = (id, label, oninp, pre='Rp') => `<div class="mb-3"><label class="block text-sm text-slate-600 mb-1">${label}</label><div class="relative">${pre?`<span class="absolute left-3 top-2.5 text-sm text-slate-400">${pre}</span>`:''}<input type="number" id="${id}" oninput="${oninp}" class="w-full border rounded-lg p-2 text-sm focus:ring-2 outline-indigo-500 ${pre?'pl-9':''}"></div></div>`;
+          const Res = (id, label, desc='') => `<div class="mt-4 bg-indigo-50 p-4 rounded-lg border border-indigo-100 text-center"><div class="text-sm text-indigo-600 font-medium">${label}</div><div id="${id}" class="text-2xl font-bold text-indigo-900 my-1">Rp 0</div><div id="${id}-desc" class="text-xs text-slate-500">${desc}</div></div>`;
+          
+          let calcBody = '';
+          if (state.calcTab === 'pda') {
+            calcBody = `<p class="text-sm text-slate-500 mb-4">Aset = Liabilitas + Ekuitas</p><div class="grid grid-cols-2 gap-4">${Inp('c-l','Total Liabilitas','app.calcPDA()')} ${Inp('c-e','Total Ekuitas','app.calcPDA()')}</div> ${Res('c-res', 'Total Aset')}`;
+          } else if (state.calcTab === 'modal') {
+            calcBody = `${Inp('c-a','Modal Awal','app.calcMod()')} ${Inp('c-lb','Laba/Rugi','app.calcMod()')} ${Inp('c-p','Prive','app.calcMod()')} ${Res('c-res', 'Modal Akhir')}`;
+          } else if (state.calcTab === 'labarugi') {
+            calcBody = `${Inp('c-p','Pendapatan','app.calcLR()')} ${Inp('c-b','Beban','app.calcLR()')} ${Res('c-res', 'Laba/Rugi Bersih')}`;
+          } else if (state.calcTab === 'hpp') {
+            calcBody = `${Inp('c-aw','Persediaan Awal','app.calcHPP()')} ${Inp('c-b','Pembelian Bersih','app.calcHPP()')} ${Inp('c-ak','Persediaan Akhir','app.calcHPP()')} ${Res('c-res', 'HPP')}`;
+          } else if (state.calcTab === 'penyusutan') {
+            calcBody = `${Inp('c-hp','Harga Perolehan','app.calcPeny()')} ${Inp('c-residu','Nilai Residu','app.calcPeny()')} ${Inp('c-u','Umur (Tahun)','app.calcPeny()', '')} ${Res('c-res', 'Beban per Tahun')}`;
+          } else if (state.calcTab === 'rasio') {
+            calcBody = `${Inp('c-al','Aset Lancar','app.calcRasio()')} ${Inp('c-ul','Utang Lancar','app.calcRasio()')} <div class="mt-4 bg-blue-50 p-4 rounded text-center"><div class="text-sm text-blue-600 font-medium">Current Ratio</div><div id="c-res" class="text-3xl font-bold text-blue-900 my-1">0 x</div></div>`;
+          } else if (state.calcTab === 'pajak') {
+            calcBody = `${Inp('c-dpp','Dasar Pengenaan Pajak','app.calcPajak()')} ${Inp('c-t','Tarif (%)','app.calcPajak()', '%')} ${Res('c-res', 'Nominal Pajak')}`;
+          }
+
+          return `
+            <div class="flex flex-col md:flex-row gap-6 max-w-5xl mx-auto animate-slide-up">
+              ${UI.Card('Daftar Kalkulator', '', `<div class="flex flex-col -m-5">${CalcBtn('pda','Persamaan Dasar')} ${CalcBtn('modal','Modal Akhir')} ${CalcBtn('labarugi','Laba Rugi')} ${CalcBtn('hpp','HPP')} ${CalcBtn('penyusutan','Penyusutan')} ${CalcBtn('rasio','Rasio Keuangan')} ${CalcBtn('pajak','Pajak Sederhana')}</div>`, 'w-full md:w-1/4')}
+              ${UI.Card('', '', calcBody, 'w-full md:w-3/4')}
+            </div>
+          `;
+        },
+
+        gameTebakAkun: () => {
+          const { step, score, feedback } = state.games.tebakAkun;
+          const questions = [
+            { desc: "Uang tunai yang siap digunakan untuk operasional.", answer: "111", opt: ["111","211","311","411"] },
+            { desc: "Kewajiban akibat pembelian kredit.", answer: "211", opt: ["111","211","121","511"] },
+            { desc: "Pengambilan aset untuk keperluan pribadi.", answer: "312", opt: ["311","112","312","515"] },
+            { desc: "Pendapatan dari layanan jasa pelanggan.", answer: "411", opt: ["411","111","311","511"] },
+            { desc: "Alokasi penyusutan dari aset tetap.", answer: "514", opt: ["121","122","514","113"] }
+          ];
+          if(step >= questions.length) {
+            return UI.Card('', '', `<div class="text-center py-8"><h3 class="text-2xl font-bold mb-2">Selesai!</h3><p class="text-lg mb-6">Skor Anda: <strong>${score} / 50</strong></p>${UI.Button('Main Lagi', 'app.gameTebakAkun_reset()')}</div>`, 'max-w-md mx-auto animate-slide-up');
+          }
+          const q = questions[step];
+          return UI.Card('Tebak Nama Akun', 'fa-question-circle', `
+            <div class="text-center pt-4">
+              <div class="text-sm font-bold text-slate-400 mb-4">Soal ${step+1}/${questions.length}</div>
+              <p class="text-xl font-medium text-indigo-900 bg-indigo-50 p-6 rounded-xl border border-indigo-100 mb-8 italic">"${q.desc}"</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${q.opt.map(code => `<button onclick="app.gameTebakAkun_ans('${code}')" class="py-4 text-base border-2 rounded hover:bg-slate-50 transition font-medium" ${feedback?'disabled':''}>${CHART_OF_ACCOUNTS.find(a=>a.code===code).name}</button>`).join('')}
+              </div>
+              ${feedback ? `<div class="mt-6 p-4 rounded font-bold text-white ${feedback==='correct'?'bg-green-500':'bg-red-500'}">${feedback==='correct'?'Tepat! +10 Poin':'Salah!'}</div>`:''}
+            </div>
+          `, 'max-w-2xl mx-auto animate-slide-up');
+        },
+
+        gamePasangDK: () => {
+          const { step, score, db, kr, feedback } = state.games.pasangDK;
+          const qs = [
+            { trans: "Membeli perlengkapan tunai", debit: "113", kredit: "111" },
+            { trans: "Menerima uang atas jasa selesai", debit: "111", kredit: "411" },
+            { trans: "Membayar gaji karyawan", debit: "511", kredit: "111" }
+          ];
+          if (step >= qs.length) return UI.Card('','',`<div class="text-center py-8"><h3 class="text-2xl font-bold mb-2">Selesai!</h3><p class="text-lg mb-6">Skor: <strong>${score}</strong></p>${UI.Button('Main Lagi', 'app.gamePasangDK_reset()')}</div>`, 'max-w-md mx-auto animate-slide-up');
+          
+          return UI.Card('Pasangkan Debit & Kredit', 'fa-gamepad', `
+            <div class="text-center pt-2">
+              <div class="text-sm font-bold text-slate-400 mb-2">Trans ${step+1}/${qs.length}</div>
+              <p class="text-lg font-bold text-slate-800 mb-6">${qs[step].trans}</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-slate-50 p-4 border rounded text-left"><label class="block text-sm font-bold text-slate-700 mb-2">Debit</label><select id="g-dk-db" onchange="state.games.pasangDK.db=this.value; app.renderContent()" class="w-full p-2 border rounded"><option value="">Pilih</option>${CHART_OF_ACCOUNTS.map(a=>`<option value="${a.code}" ${db===a.code?'selected':''}>${a.name}</option>`).join('')}</select></div>
+                <div class="bg-slate-50 p-4 border rounded text-left"><label class="block text-sm font-bold text-slate-700 mb-2">Kredit</label><select id="g-dk-kr" onchange="state.games.pasangDK.kr=this.value; app.renderContent()" class="w-full p-2 border rounded"><option value="">Pilih</option>${CHART_OF_ACCOUNTS.map(a=>`<option value="${a.code}" ${kr===a.code?'selected':''}>${a.name}</option>`).join('')}</select></div>
+              </div>
+              ${UI.Button('Periksa', 'app.gamePasangDK_check()', 'primary', 'w-full', !db||!kr||feedback)}
+              ${feedback ? `<div class="mt-4 p-3 rounded font-bold text-white ${feedback==='correct'?'bg-green-500':'bg-red-500'}">${feedback==='correct'?'Benar! +20 Poin':'Salah!'}</div>`:''}
+            </div>
+          `, 'max-w-2xl mx-auto animate-slide-up');
+        },
+
+        gameSusunJurnal: () => {
+          const { step, score, selected, feedback } = state.games.susunJurnal;
+          const qs = [
+             { trans: "Setor modal tunai", opt: [{a:"Kas", p:"Debit"}, {a:"Modal", p:"Debit"}, {a:"Kas", p:"Kredit"}, {a:"Modal", p:"Kredit"}], ans: ["Kas-Debit", "Modal-Kredit"] },
+             { trans: "Bayar sewa gedung", opt: [{a:"Beban Sewa", p:"Debit"}, {a:"Kas", p:"Debit"}, {a:"Beban Sewa", p:"Kredit"}, {a:"Kas", p:"Kredit"}], ans: ["Beban Sewa-Debit", "Kas-Kredit"] }
+          ];
+          if(step >= qs.length) return UI.Card('','',`<div class="text-center py-8"><h3 class="text-2xl font-bold mb-2">Selesai!</h3><p class="text-lg mb-6">Skor: <strong>${score}</strong></p>${UI.Button('Main Lagi', 'app.gameSusun_reset()')}</div>`, 'max-w-md mx-auto animate-slide-up');
+          return UI.Card('Susun Jurnal', 'fa-file-alt', `
+             <p class="text-lg font-bold text-slate-800 mb-6 bg-slate-100 p-4 rounded">${qs[step].trans}</p>
+             <p class="text-sm text-slate-500 mb-4">Pilih 2 komponen jurnal yang tepat:</p>
+             <div class="grid grid-cols-2 gap-4 mb-6">
+               ${qs[step].opt.map(opt => {
+                 const key = opt.a + '-' + opt.p;
+                 const sel = selected.includes(key);
+                 return `<button onclick="app.gameSusun_toggle('${key}')" class="p-4 border-2 rounded font-bold transition-all ${sel ? 'border-indigo-600 bg-indigo-50 text-indigo-700':'border-slate-200'}"><div>${opt.a}</div><div class="text-xs uppercase mt-1 opacity-70">Pos: ${opt.p}</div></button>`;
+               }).join('')}
+             </div>
+             ${UI.Button('Konfirmasi', 'app.gameSusun_check()', 'primary', 'w-full', selected.length !== 2 || feedback)}
+             ${feedback ? `<div class="mt-4 p-3 rounded font-bold text-white ${feedback==='correct'?'bg-green-500':'bg-red-500'}">${feedback==='correct'?'Tepat! +25 Poin':'Susunan Keliru!'}</div>`:''}
+          `, 'max-w-2xl mx-auto animate-slide-up');
+        },
+
+        gameKlasifikasi: () => {
+          const { score, current } = state.games.klasifikasi;
+          const cats = ['Aset', 'Liabilitas', 'Ekuitas', 'Pendapatan', 'Beban'];
+          return UI.Card('Klasifikasi Akun', 'fa-brain', `
+             <div class="flex justify-between items-center mb-8 border-b pb-4"><div class="text-sm text-slate-500">Beruntun</div><div class="font-bold text-indigo-600 bg-indigo-50 px-4 py-1 rounded-full border">Skor: ${score}</div></div>
+             <div class="text-center">
+                <div class="text-sm text-slate-500 mb-2">Termasuk kelompok apa akun ini?</div>
+                <h2 class="text-3xl font-bold text-slate-800 mb-8 p-6 bg-slate-50 rounded-xl border border-slate-200 inline-block min-w-[250px] shadow-inner">${current.name}</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  ${cats.map(c => `<button onclick="app.gameKlasifikasi_ans('${c}')" class="p-3 border-2 border-slate-200 rounded hover:border-indigo-500 hover:bg-indigo-50 font-bold transition-colors">${c}</button>`).join('')}
+                </div>
+             </div>
+          `, 'max-w-xl mx-auto animate-slide-up');
+        },
+
+        gameSaldoNormal: () => {
+          const { qIndex, score, questions, feedback } = state.games.saldoNormal;
+          if(qIndex >= questions.length) return UI.Card('','',`<div class="text-center py-8"><h3 class="text-2xl font-bold mb-2">Selesai!</h3><p class="text-lg mb-6">Skor: <strong>${score} / 100</strong></p>${UI.Button('Ulangi', 'app.gameSaldo_reset()')}</div>`, 'max-w-md mx-auto animate-slide-up');
+          const current = questions[qIndex];
+          return UI.Card('Tebak Saldo Normal', 'fa-chart-pie', `
+             <div class="text-center pt-6 pb-4">
+                <div class="text-sm font-bold text-slate-400 mb-4">Soal ${qIndex+1}/10</div>
+                <h2 class="text-3xl font-bold text-slate-800 mb-8">${current.name}</h2>
+                <div class="flex gap-4 justify-center">
+                  ${UI.Button('DEBIT', `app.gameSaldo_ans('debit')`, 'primary', 'w-32 h-16 text-lg font-bold', feedback)}
+                  ${UI.Button('KREDIT', `app.gameSaldo_ans('kredit')`, 'outline', 'w-32 h-16 text-lg font-bold border-red-500 text-red-500 hover:bg-red-50', feedback)}
+                </div>
+                ${feedback ? `<div class="mt-6 p-3 rounded font-bold text-white ${feedback==='correct'?'bg-green-500':'bg-red-500'}">${feedback==='correct'?'BENAR! +10 Poin':`SALAH! (Harusnya ${current.normal.toUpperCase()})`}</div>`:''}
+             </div>
+          `, 'max-w-lg mx-auto animate-slide-up');
+        },
+
+        gameTantangan: () => {
+          const { playing, timeLeft, score, currentQ } = state.games.tantangan;
+          if(!playing && timeLeft === 0) return UI.Card('','',`<div class="text-center py-8"><h3 class="text-2xl font-bold text-slate-800 mb-2">Waktu Habis! ⏰</h3><p class="text-lg mb-6">Skor Akhir: <strong>${score}</strong></p>${UI.Button('Main Ulang', 'app.gameTantangan_start()')}</div>`, 'max-w-md mx-auto animate-slide-up');
+          return UI.Card('Tantangan 30 Detik', 'fa-stopwatch', `
+             ${!playing && timeLeft === 30 ? `
+                <div class="text-center py-6">
+                  <p class="text-slate-600 mb-6">Tentukan apakah pernyataan Saldo Normal berikut Benar/Salah secepat mungkin dalam 30 detik. <br/><br/><i>Benar: +5 | Salah: -2</i></p>
+                  ${UI.Button('Mulai', 'app.gameTantangan_start()', 'primary', 'w-full text-lg h-14')}
+                </div>
+             ` : `
+                <div class="text-center pt-4">
+                  <div class="flex justify-between items-center bg-slate-100 p-3 rounded border mb-8"><div class="text-red-500 font-bold flex items-center gap-2"><i class="fas fa-stopwatch"></i> ${timeLeft} dtk</div><div class="text-indigo-600 font-bold">Skor: ${score}</div></div>
+                  <h2 class="text-2xl font-medium text-slate-800 mb-2">${currentQ?.name}</h2>
+                  <p class="text-xl font-bold text-slate-600 mb-8">Saldo Normal: <span class="uppercase text-indigo-700">${currentQ?.statedNormal}</span>?</p>
+                  <div class="grid grid-cols-2 gap-4">
+                    <button onclick="app.gameTantangan_ans(true)" class="h-16 text-xl bg-green-500 text-white rounded font-bold hover:bg-green-600 shadow">BENAR</button>
+                    <button onclick="app.gameTantangan_ans(false)" class="h-16 text-xl bg-red-500 text-white rounded font-bold hover:bg-red-600 shadow">SALAH</button>
+                  </div>
+                </div>
+             `}
+          `, 'max-w-xl mx-auto animate-slide-up');
+        },
+
+        evaluasi: () => {
+          const { step, score, finished, selected, feedback } = state.eval;
+          if (finished) {
+            return UI.Card('Hasil Evaluasi', 'fa-check-circle', `
+              <div class="text-center py-10">
+                <h3 class="text-3xl font-bold mb-4 text-slate-800">Evaluasi Selesai!</h3>
+                <div class="inline-flex bg-indigo-50 border-4 border-indigo-100 rounded-full w-32 h-32 items-center justify-center mb-6 shadow-inner mx-auto"><span class="text-4xl font-bold text-indigo-700">${score}</span></div>
+                <p class="text-lg text-slate-600 mb-8">Benar <strong>${score/10}</strong> dari <strong>${EVALUASI_QS.length}</strong> pertanyaan.</p>
+                ${UI.Button('Coba Lagi', 'app.evalReset()', 'primary', 'px-8 py-3')}
+              </div>
+            `, 'max-w-xl mx-auto animate-slide-up');
+          }
+          const q = EVALUASI_QS[step];
+          return UI.Card('Evaluasi Akhir', 'fa-check-circle', `
+            <div class="mb-6 flex justify-between items-center text-sm font-bold text-slate-500 border-b pb-4"><span>Soal ${step+1} / ${EVALUASI_QS.length}</span><span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">Skor: ${score}</span></div>
+            <h3 class="text-xl font-medium text-slate-800 mb-8 leading-relaxed">${q.q}</h3>
+            <div class="space-y-3">
+              ${q.options.map((opt, idx) => {
+                let cls = "w-full text-left py-4 px-6 rounded-xl border-2 transition-all font-medium text-slate-700 ";
+                if (feedback && selected === idx) cls += feedback==='correct'?"bg-green-100 border-green-500 text-green-800":"bg-red-100 border-red-500 text-red-800";
+                else if (feedback && idx === q.ans) cls += "bg-green-100 border-green-500 text-green-800";
+                else cls += "bg-white border-slate-200 hover:border-indigo-400 hover:bg-indigo-50";
+                return `<button onclick="app.evalAns(${idx})" class="${cls}" ${feedback?'disabled':''}><div class="flex gap-4 items-start"><span class="font-bold text-indigo-500">${String.fromCharCode(65+idx)}.</span><span class="leading-snug">${opt}</span></div></button>`;
+              }).join('')}
+            </div>
+            ${feedback ? `<div class="mt-6 p-4 rounded font-bold text-center text-white ${feedback==='correct'?'bg-green-500':'bg-red-500'}">${feedback==='correct'?'Tepat!':'Kurang Tepat.'}</div>`:''}
+          `, 'max-w-3xl mx-auto animate-slide-up');
+        },
+
+        glosarium: () => {
+          const term = state.glosariumSearch.toLowerCase();
+          const filtered = GLOSARIUM.filter(g => g.term.toLowerCase().includes(term));
+          return UI.Card('Glosarium', 'fa-file-alt', `
+            <input type="text" placeholder="Cari istilah..." value="${state.glosariumSearch}" oninput="state.glosariumSearch=this.value; app.renderContent()" class="w-full p-3 border rounded-lg mb-6 bg-slate-50 outline-indigo-300">
+            <div class="space-y-4">
+              ${filtered.map(g => `<div class="border-b border-slate-100 pb-3"><h4 class="font-bold text-indigo-700 text-lg">${g.term}</h4><p class="text-slate-600 mt-1">${g.desc}</p></div>`).join('')}
+              ${!filtered.length ? '<p class="text-slate-500 text-center py-4">Tidak ditemukan.</p>' : ''}
+            </div>
+          `, 'max-w-3xl mx-auto animate-slide-up');
+        },
+
+        forum: () => `
+          <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-6 animate-slide-up">
+            <div class="w-full md:w-1/3">
+              ${UI.Card('Buat Diskusi', '', `
+                <form onsubmit="event.preventDefault(); app.forumPost()" class="space-y-4">
+                  <input type="text" id="f-title" placeholder="Judul" required class="w-full p-2 border rounded outline-indigo-500 text-sm">
+                  <textarea id="f-cont" placeholder="Isi diskusi..." required rows="4" class="w-full p-2 border rounded resize-none outline-indigo-500 text-sm"></textarea>
+                  ${UI.Button('Kirim Diskusi', '', 'primary', 'w-full', false)}
+                  <p class="text-xs text-slate-400 text-center mt-2">Data disimpan lokal.</p>
+                </form>
+              `)}
+            </div>
+            <div class="w-full md:w-2/3 space-y-4">
+              ${state.forum.length ? state.forum.map(p => `
+                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                  <div class="flex justify-between items-start mb-2"><h3 class="font-bold text-lg text-slate-800">${p.title}</h3><span class="text-xs text-slate-400">${p.date}</span></div>
+                  <p class="text-slate-600 text-sm mb-4">${p.content}</p>
+                  <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <div class="flex items-center gap-2 text-sm text-slate-500"><div class="px-2 py-0.5 rounded text-xs ${p.role==='guru'?'bg-amber-100 text-amber-800':'bg-slate-100 text-slate-700'}">${p.role==='guru'?'Guru':'Murid'}</div><span>${p.author}</span></div>
+                    <button onclick="app.forumLike(${p.id})" class="text-sm text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded"><i class="fas fa-thumbs-up"></i> ${p.likes}</button>
+                  </div>
+                </div>
+              `).join('') : '<div class="text-center p-8 bg-slate-50 rounded border text-slate-500">Belum ada diskusi.</div>'}
+            </div>
+          </div>
+        `,
+
+        calendar: () => `
+          ${UI.Card('Kalender Belajar', 'fa-calendar-alt', `
+            <form onsubmit="event.preventDefault(); app.calAdd()" class="flex gap-2 mb-6">
+              <input type="date" id="cal-date" required class="p-2 border rounded w-40 text-sm outline-indigo-500">
+              <input type="text" id="cal-task" placeholder="Rencana..." required class="flex-1 p-2 border rounded text-sm outline-indigo-500">
+              ${UI.Button('<i class="fas fa-plus"></i>', '', 'primary')}
+            </form>
+            <div class="space-y-2">
+              ${state.calendar.length ? state.calendar.map(c => `
+                <div class="flex items-center justify-between p-3 border rounded-lg ${c.done?'bg-slate-50 opacity-60':'bg-white'}">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" ${c.done?'checked':''} onchange="app.calToggle(${c.id})" class="w-5 h-5 rounded text-indigo-600">
+                    <div><div class="font-medium ${c.done?'line-through text-slate-500':'text-slate-800'}">${c.task}</div><div class="text-xs text-slate-500">${c.date}</div></div>
+                  </div>
+                  <button onclick="app.calDel(${c.id})" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                </div>
+              `).join('') : '<p class="text-slate-500 text-sm text-center py-4">Belum ada jadwal.</p>'}
+            </div>
+          `, 'max-w-2xl mx-auto animate-slide-up')}
+        `,
+
+        settings: () => `
+          <div class="max-w-2xl mx-auto space-y-6 animate-slide-up">
+            ${UI.Card('Profil', '', `
+              <div class="flex items-center gap-4 mb-6"><img src="${state.user.avatar}" class="w-16 h-16 rounded-full bg-slate-100"><div><h3 class="font-bold text-lg">${state.user.name}</h3><p class="text-sm text-slate-500 uppercase">${state.user.role}</p></div></div>
+              <div class="bg-slate-50 p-4 rounded border text-sm text-slate-700">Total Poin: <strong>${state.points}</strong></div>
+            `)}
+            ${UI.Card('Zona Berbahaya', '', `
+              <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p class="text-sm text-red-600 mb-4">Tindakan ini menghapus seluruh progres materi, lab, dan poin.</p>
+                ${UI.Button('Reset Semua Data', 'app.resetAll()', 'danger')}
+              </div>
+            `, 'border-red-100')}
+          </div>
+        `,
+
+        creator: () => UI.Card('Profil Pembuat', 'fa-user', `
+          <div class="text-center animate-slide-up">
+            <div class="bg-indigo-600 text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-md">AT</div>
+            <h2 class="text-2xl font-bold text-slate-800">Affridho Tegar Al Amin</h2>
+            <div class="space-y-3 mt-6 text-sm text-slate-600">
+              <p><i class="fas fa-envelope"></i> ridhoamim.al@gmail.com</p><p><i class="fas fa-phone"></i> 0895320599887</p>
+              <a href="https://wa.me/qr/S6S23M26XBVGO1?s=v" target="_blank" class="block w-full py-2 bg-green-50 text-green-700 font-medium rounded hover:bg-green-100">WhatsApp</a>
+              <a href="https://www.linkedin.com/in/affridho-tegar-al-amin-544143367" target="_blank" class="block w-full py-2 bg-blue-50 text-blue-700 font-medium rounded hover:bg-blue-100">LinkedIn</a>
+            </div>
+          </div>
+        `, 'max-w-md mx-auto')
+      },
+
+      // --- LOGIC METHODS ---
+      markMateriDone() {
+        state.progress.materi.push(state.activeMateriId);
+        saveState('progress', state.progress);
+        this.addPoints(10, 'Menyelesaikan Bab');
+      },
+
+      labAddJurnal() {
+        const date = document.getElementById('lj-date').value;
+        const account = document.getElementById('lj-acc').value;
+        const debit = Number(document.getElementById('lj-db').value) || 0;
+        const credit = Number(document.getElementById('lj-kr').value) || 0;
+        if ((!debit && !credit) || (debit && credit)) return this.toast("Pilih salah satu Debit ATAU Kredit.", "error");
+        state.labData.push({ id: Date.now(), date, account, debit, credit });
+        saveState('lab_journal', state.labData);
+        this.addPoints(5, 'Entri Jurnal');
+      },
+      labDelJurnal(id) { state.labData = state.labData.filter(d=>d.id!==id); saveState('lab_journal', state.labData); this.renderContent(); },
+      
+      calcPDA() {
+        const l = Number(document.getElementById('c-l').value)||0; const e = Number(document.getElementById('c-e').value)||0;
+        document.getElementById('c-res').innerText = formatRp(l+e);
+      },
+      calcMod() {
+        const a = Number(document.getElementById('c-a').value)||0; const lb = Number(document.getElementById('c-lb').value)||0; const p = Number(document.getElementById('c-p').value)||0;
+        document.getElementById('c-res').innerText = formatRp(a+lb-p);
+      },
+      calcLR() {
+        const p = Number(document.getElementById('c-p').value)||0; const b = Number(document.getElementById('c-b').value)||0;
+        document.getElementById('c-res').innerText = formatRp(p-b);
+        document.getElementById('c-res-desc').innerText = (p-b)>=0 ? 'Perusahaan LABA' : 'Perusahaan RUGI';
+      },
+      calcHPP() {
+        const aw = Number(document.getElementById('c-aw').value)||0; const b = Number(document.getElementById('c-b').value)||0; const ak = Number(document.getElementById('c-ak').value)||0;
+        document.getElementById('c-res').innerText = formatRp(aw+b-ak);
+      },
+      calcPeny() {
+        const hp = Number(document.getElementById('c-hp').value)||0; const res = Number(document.getElementById('c-residu').value)||0; const u = Number(document.getElementById('c-u').value)||0;
+        document.getElementById('c-res').innerText = formatRp(u ? (hp-res)/u : 0);
+      },
+      calcRasio() {
+        const al = Number(document.getElementById('c-al').value)||0; const ul = Number(document.getElementById('c-ul').value)||0;
+        document.getElementById('c-res').innerText = (ul ? (al/ul).toFixed(2) : 0) + ' x';
+      },
+      calcPajak() {
+        const dpp = Number(document.getElementById('c-dpp').value)||0; const t = Number(document.getElementById('c-t').value)||0;
+        const pjk = dpp * (t/100);
+        document.getElementById('c-res').innerText = formatRp(pjk);
+        document.getElementById('c-res-desc').innerText = 'Total: ' + formatRp(dpp+pjk);
+      },
+
+      forumPost() {
+        const title = document.getElementById('f-title').value, content = document.getElementById('f-cont').value;
+        if(!title || !content) return;
+        state.forum.unshift({ id: Date.now(), title, content, author: state.user.name, role: state.user.role, likes: 0, date: new Date().toLocaleDateString() });
+        saveState('forum', state.forum); this.renderContent(); this.toast('Terkirim Lokal');
+      },
+      forumLike(id) {
+        state.forum.find(f=>f.id===id).likes++; saveState('forum', state.forum); this.renderContent();
+      },
+
+      calAdd() {
+        const date = document.getElementById('cal-date').value, task = document.getElementById('cal-task').value;
+        state.calendar.push({ id: Date.now(), task, date, done: false });
+        state.calendar.sort((a,b)=>new Date(a.date)-new Date(b.date));
+        saveState('calendar', state.calendar); this.renderContent(); this.toast('Jadwal disimpan');
+      },
+      calToggle(id) { const c = state.calendar.find(x=>x.id===id); c.done=!c.done; saveState('calendar', state.calendar); this.renderContent(); },
+      calDel(id) { state.calendar = state.calendar.filter(x=>x.id!==id); saveState('calendar', state.calendar); this.renderContent(); },
+
+      // Games Logic
+      gameTebakAkun_ans(code) {
+        if(state.games.tebakAkun.feedback) return;
+        const correct = "111,211,312,411,514".split(",")[state.games.tebakAkun.step] === code;
+        if(correct) { state.games.tebakAkun.score += 10; state.games.tebakAkun.feedback = 'correct'; }
+        else state.games.tebakAkun.feedback = 'wrong';
+        this.renderContent();
+        setTimeout(() => { state.games.tebakAkun.feedback=null; state.games.tebakAkun.step++; this.renderContent(); }, 1000);
+      },
+      gameTebakAkun_reset() { this.addPoints(state.games.tebakAkun.score, 'Tebak Akun'); state.games.tebakAkun={step:0,score:0,feedback:null}; this.renderContent(); },
+
+      gamePasangDK_check() {
+        const {step, db, kr} = state.games.pasangDK;
+        const ans = [{d:"113",k:"111"},{d:"111",k:"411"},{d:"511",k:"111"}][step];
+        if(db===ans.d && kr===ans.k) { state.games.pasangDK.score+=20; state.games.pasangDK.feedback='correct'; }
+        else state.games.pasangDK.feedback='wrong';
+        this.renderContent();
+        setTimeout(() => { state.games.pasangDK.feedback=null; state.games.pasangDK.db=''; state.games.pasangDK.kr=''; state.games.pasangDK.step++; this.renderContent(); }, 1500);
+      },
+      gamePasangDK_reset() { this.addPoints(state.games.pasangDK.score, 'Pasang DK'); state.games.pasangDK={step:0,score:0,db:'',kr:'',feedback:null}; this.renderContent(); },
+
+      gameSusun_toggle(key) {
+        let sel = state.games.susunJurnal.selected;
+        if(sel.includes(key)) sel = sel.filter(k=>k!==key);
+        else if(sel.length < 2) sel.push(key);
+        state.games.susunJurnal.selected = sel; this.renderContent();
+      },
+      gameSusun_check() {
+        const {step, selected} = state.games.susunJurnal;
+        const ans = [["Kas-Debit","Modal-Kredit"], ["Beban Sewa-Debit","Kas-Kredit"]][step];
+        if(selected.includes(ans[0]) && selected.includes(ans[1])) { state.games.susunJurnal.score+=25; state.games.susunJurnal.feedback='correct'; }
+        else state.games.susunJurnal.feedback='wrong';
+        this.renderContent();
+        setTimeout(() => { state.games.susunJurnal.feedback=null; state.games.susunJurnal.selected=[]; state.games.susunJurnal.step++; this.renderContent(); }, 1500);
+      },
+      gameSusun_reset() { this.addPoints(state.games.susunJurnal.score, 'Susun Jurnal'); state.games.susunJurnal={step:0,score:0,selected:[],feedback:null}; this.renderContent(); },
+
+      gameKlasifikasi_ans(cat) {
+        if(state.games.klasifikasi.current.category.includes(cat)) { state.games.klasifikasi.score+=5; this.addPoints(5, 'Klasifikasi'); }
+        state.games.klasifikasi.current = CHART_OF_ACCOUNTS[Math.floor(Math.random() * CHART_OF_ACCOUNTS.length)];
+        this.renderContent();
+      },
+
+      gameSaldo_ans(ans) {
+        if(state.games.saldoNormal.feedback) return;
+        const curr = state.games.saldoNormal.questions[state.games.saldoNormal.qIndex];
+        if(curr.normal === ans) { state.games.saldoNormal.score+=10; state.games.saldoNormal.feedback='correct'; }
+        else state.games.saldoNormal.feedback='wrong';
+        this.renderContent();
+        setTimeout(() => { state.games.saldoNormal.feedback=null; state.games.saldoNormal.qIndex++; this.renderContent(); }, 1000);
+      },
+      gameSaldo_reset() { this.addPoints(state.games.saldoNormal.score, 'Tebak Saldo'); state.games.saldoNormal={qIndex:0,score:0,questions:[...CHART_OF_ACCOUNTS].sort(()=>0.5-Math.random()).slice(0,10),feedback:null}; this.renderContent(); },
+
+      gameTantangan_start() {
+        if(state.games.tantangan.intervalId) clearInterval(state.games.tantangan.intervalId);
+        state.games.tantangan = { playing: true, timeLeft: 30, score: 0, currentQ: null, intervalId: null };
+        this.gameTantangan_next();
+        state.games.tantangan.intervalId = setInterval(() => {
+          if(state.games.tantangan.timeLeft > 0) { state.games.tantangan.timeLeft--; this.renderContent(); }
+          else { clearInterval(state.games.tantangan.intervalId); state.games.tantangan.playing=false; if(state.games.tantangan.score>0) this.addPoints(state.games.tantangan.score, 'Tantangan 30d'); this.renderContent(); }
+        }, 1000);
+      },
+      gameTantangan_next() {
+        const acc = CHART_OF_ACCOUNTS[Math.floor(Math.random() * CHART_OF_ACCOUNTS.length)];
+        const isTrue = Math.random() > 0.5;
+        state.games.tantangan.currentQ = { name: acc.name, statedNormal: isTrue ? acc.normal : (acc.normal==='debit'?'kredit':'debit'), isTrue };
+        this.renderContent();
+      },
+      gameTantangan_ans(ans) {
+        if(ans === state.games.tantangan.currentQ.isTrue) state.games.tantangan.score += 5;
+        else state.games.tantangan.score -= 2;
+        this.gameTantangan_next();
+      },
+
+      evalAns(idx) {
+        if(state.eval.feedback) return;
+        state.eval.selected = idx;
+        const correct = EVALUASI_QS[state.eval.step].ans === idx;
+        if(correct) { state.eval.score+=10; state.eval.feedback='correct'; } else state.eval.feedback='wrong';
+        this.renderContent();
+        setTimeout(() => {
+          state.eval.feedback = null; state.eval.selected = null;
+          if(state.eval.step + 1 < EVALUASI_QS.length) state.eval.step++;
+          else { state.eval.finished = true; if(state.eval.score>0) this.addPoints(state.eval.score, 'Evaluasi Akhir'); }
+          this.renderContent();
+        }, 1500);
+      },
+      evalReset() { state.eval = {step:0,score:0,finished:false,selected:null,feedback:null}; this.renderContent(); },
+
+      // --- AI CHATBOX ---
+      chatbox: { isOpen: false, loading: false, messages: [{ role: 'model', text: 'Halo! Saya Tutor AI Akunteraktif. Ada pertanyaan tentang akuntansi yang bisa saya bantu?' }] },
+      
+      toggleChatbox() {
+        this.chatbox.isOpen = !this.chatbox.isOpen;
+        this.renderChatbox();
+      },
+
+      async sendAI(e) {
+        e.preventDefault();
+        const inp = document.getElementById('ai-inp');
+        const text = inp.value.trim();
+        if(!text) return;
+        this.chatbox.messages.push({role: 'user', text});
+        inp.value = '';
+        this.chatbox.loading = true;
+        this.renderChatbox();
+
+        try {
+          const apiKey = ""; // Disuplai otomatis via Canvas Gemini
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text }] }], systemInstruction: { parts: [{ text: "Kamu adalah tutor akuntansi yang interaktif, ramah dan ringkas untuk SMA." }] } })
+          });
+          const data = await res.json();
+          this.chatbox.messages.push({role: 'model', text: data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, saya tidak paham." });
+        } catch (e) {
+          this.chatbox.messages.push({role: 'model', text: "Ups, terjadi kesalahan koneksi jaringan." });
+        }
+        this.chatbox.loading = false;
+        this.renderChatbox();
+      },
+
+      renderChatbox() {
+        const root = document.getElementById('chatbox-root');
+        if(!state.user) { root.innerHTML = ''; return; }
+        
+        root.innerHTML = `
+          <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+            ${this.chatbox.isOpen ? `
+              <div class="bg-white w-[350px] md:w-[400px] h-[450px] rounded-2xl shadow-2xl border flex flex-col overflow-hidden mb-4 animate-slide-up">
+                <div class="bg-indigo-600 p-4 text-white flex justify-between items-center shadow-md z-10">
+                  <div class="font-bold flex items-center gap-2"><i class="fas fa-robot text-xl"></i> Tutor AI</div>
+                  <button onclick="app.toggleChatbox()" class="text-indigo-200 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div id="cb-msgs" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                  ${this.chatbox.messages.map(m => `
+                    <div class="flex ${m.role==='user'?'justify-end':'justify-start'}">
+                      <div class="max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${m.role==='user'?'bg-indigo-600 text-white rounded-br-sm':'bg-white border text-slate-700 rounded-bl-sm shadow-sm'}">${m.text.replace(/\n/g, '<br/>')}</div>
+                    </div>
+                  `).join('')}
+                  ${this.chatbox.loading ? `<div class="flex justify-start"><div class="bg-white border text-slate-500 p-3 rounded-2xl rounded-bl-sm text-sm italic animate-pulse-fast"><i class="fas fa-circle-notch fa-spin"></i> Mengetik...</div></div>`:''}
+                </div>
+                <form onsubmit="app.sendAI(event)" class="p-3 bg-white border-t flex gap-2">
+                  <input type="text" id="ai-inp" placeholder="Tanya soal akuntansi..." class="flex-1 px-4 py-2 bg-slate-100 border-transparent rounded-xl text-sm outline-indigo-500" ${this.chatbox.loading?'disabled':''}>
+                  <button type="submit" class="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50" ${this.chatbox.loading?'disabled':''}><i class="fas fa-paper-plane"></i></button>
+                </form>
+              </div>
+            ` : ''}
+            <button onclick="app.toggleChatbox()" class="w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-300 hover:scale-110 ${this.chatbox.isOpen ? 'bg-red-500' : 'bg-indigo-600 hover:bg-indigo-700'}">
+              <i class="fas ${this.chatbox.isOpen ? 'fa-times' : 'fa-comments'} text-2xl"></i>
+            </button>
+          </div>
+        `;
+        if(this.chatbox.isOpen) {
+           const el = document.getElementById('cb-msgs');
+           if(el) el.scrollTop = el.scrollHeight;
+        }
+      }
+    };
+
+    // --- 5. INITIALIZE ---
+    window.onload = () => app.init();
+  </script>
+</body>
+</html>
